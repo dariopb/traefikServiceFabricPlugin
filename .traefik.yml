@@ -1,10 +1,10 @@
-name: serviceFabric
-displayName: Service Fabric Plugin
 type: provider
-
 import: github.com/dariopb/traefikServiceFabricPlugin
 
+name: serviceFabric
+displayName: Service Fabric Plugin
 summary: 'Service Fabric Configuration Provider Plugin'
+iconPath: media/sfTraefikIcon.png
 
 testData:
   pollInterval: 5s
