@@ -2,7 +2,7 @@ name: serviceFabric
 displayName: Service Fabric Plugin
 type: provider
 
-import: github.com/dariopb/service_fabric_plugin
+import: github.com/dariopb/traefikServiceFabricPlugin
 
 summary: 'Service Fabric Configuration Provider Plugin'
 

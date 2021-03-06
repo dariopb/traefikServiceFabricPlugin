@@ -19,7 +19,7 @@ pilot:
 experimental:
   devPlugin:
     goPath: c:/projects/sf_stuff/traefik/go
-    moduleName: github.com/dariopb/service_fabric_plugin
+    moduleName: github.com/dariopb/traefikServiceFabricPlugin
 
 providers:
   plugin:

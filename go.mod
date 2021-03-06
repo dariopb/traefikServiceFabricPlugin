@@ -1,4 +1,4 @@
-module github.com/dariopb/service_fabric_plugin
+module github.com/dariopb/traefikServiceFabricPlugin
 
 go 1.15
 

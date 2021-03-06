@@ -1,4 +1,4 @@
-package service_fabric_plugin
+package traefikServiceFabricPlugin
 
 import (
 	sf "github.com/jjcollinge/servicefabric"

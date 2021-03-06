@@ -34,12 +34,12 @@ pilot:
 
 experimental:
   serviceFabricPlugin:
-    moduleName: github.com/dariopb/service_fabric_plugin
+    moduleName: github.com/dariopb/traefikServiceFabricPlugin
     version: v0.1.0
 
 providers:
   plugin:
-    serviceFabric:
+    traefikServiceFabricPlugin:
       pollInterval: 4s
       clusterManagementURL: http://dariotraefik1.southcentralus.cloudapp.azure.com:19080/
       #certificate : ./cert.pem
