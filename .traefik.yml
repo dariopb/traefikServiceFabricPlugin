@@ -1,0 +1,11 @@
+name: serviceFabric
+displayName: Service Fabric Plugin
+type: provider
+
+import: github.com/dariopb/service_fabric_plugin
+
+summary: 'Service Fabric Configuration Provider Plugin'
+
+testData:
+  pollInterval: 5s
+  clusterManagementURL: http://localhost:19080/

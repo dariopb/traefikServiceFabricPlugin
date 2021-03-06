@@ -1,0 +1,33 @@
+# Static configuration
+global:
+  sendAnonymousUsage: false
+
+entryPoints:
+  web:
+    address: :9999
+    
+api:
+  dashboard: true
+  insecure : true
+
+log:
+  level: DEBUG
+
+pilot:
+  token: xxxxx
+
+experimental:
+  devPlugin:
+    goPath: c:/projects/sf_stuff/traefik/go
+    moduleName: github.com/dariopb/service_fabric_plugin
+
+providers:
+  plugin:
+    #dev:
+    serviceFabric:
+      pollInterval: 4s
+      clusterManagementURL: http://dariotraefik1.southcentralus.cloudapp.azure.com:19080/
+      #certificate : ./cert.pem
+      #certificateKey: ./cert.key
+
+
