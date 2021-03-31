@@ -11,10 +11,9 @@ import (
 	"time"
 	"unicode"
 
+	sf "github.com/jjcollinge/servicefabric"
 	"github.com/traefik/genconf/dynamic"
 	"github.com/traefik/genconf/dynamic/tls"
-
-	sf "github.com/jjcollinge/servicefabric"
 )
 
 const (
@@ -92,7 +91,7 @@ func (p *Provider) Init() error {
 		return err
 	}
 
-	sfClient, err := sf.NewClient(http.DefaultClient, p.clusterManagementURL, p.apiVersion, tlsConfig)
+	sfClient, err := sf.NewClient(&http.Client{Timeout: 5 * time.Second}, p.clusterManagementURL, p.apiVersion, tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -158,17 +157,17 @@ func normalize(name string) string {
 }
 
 func (p *Provider) fetchState() ([]ServiceItemExtended, error) {
-	sfClient := p.sfClient
-	apps, err := sfClient.GetApplications()
+	apps, err := p.sfClient.GetApplications()
 	if err != nil {
-		return make([]ServiceItemExtended, 0), nil
+		log.Printf("failed to gets applications %v", err)
+		return nil, nil
 	}
 
 	var results []ServiceItemExtended
 	for _, app := range apps.Items {
-		services, err := sfClient.GetServices(app.ID)
+		services, err := p.sfClient.GetServices(app.ID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get services: %w", err)
 		}
 
 		for _, service := range services.Items {
@@ -177,30 +176,32 @@ func (p *Provider) fetchState() ([]ServiceItemExtended, error) {
 				Application: app,
 			}
 
-			if labels, err := getLabels(sfClient, &service, &app); err != nil {
-				log.Print(err)
-			} else {
-				item.Labels = labels
+			labels, err := getLabels(p.sfClient, service, app)
+			if err != nil {
+				log.Printf("failed to get labels: %v", err)
 			}
 
-			if partitions, err := sfClient.GetPartitions(app.ID, service.ID); err != nil {
-				log.Print(err)
-			} else {
-				for _, partition := range partitions.Items {
-					partitionExt := PartitionItemExtended{PartitionItem: partition}
+			item.Labels = labels
 
-					switch {
-					case isStateful(item):
-						partitionExt.Replicas = getValidReplicas(sfClient, app, service, partition)
-					case isStateless(item):
-						partitionExt.Instances = getValidInstances(sfClient, app, service, partition)
-					default:
-						log.Printf("Unsupported service kind %s in service %s", partition.ServiceKind, service.Name)
-						continue
-					}
+			partitions, err := p.sfClient.GetPartitions(app.ID, service.ID)
+			if err != nil {
+				log.Printf("failed to get partitions: %v", err)
+			}
 
-					item.Partitions = append(item.Partitions, partitionExt)
+			for _, partition := range partitions.Items {
+				partitionExt := PartitionItemExtended{PartitionItem: partition}
+
+				switch {
+				case isStateful(item):
+					partitionExt.Replicas = getValidReplicas(p.sfClient, app, service, partition)
+				case isStateless(item):
+					partitionExt.Instances = getValidInstances(p.sfClient, app, service, partition)
+				default:
+					log.Printf("Unsupported service kind %s in service %s", partition.ServiceKind, service.Name)
+					continue
 				}
+
+				item.Partitions = append(item.Partitions, partitionExt)
 			}
 
 			results = append(results, item)
@@ -303,20 +304,19 @@ func isStateless(service ServiceItemExtended) bool {
 
 // Return a set of labels from the Extension and Property manager
 // Allow Extension labels to disable importing labels from the property manager.
-func getLabels(sfClient sfClient, service *sf.ServiceItem, app *sf.ApplicationItem) (map[string]string, error) {
-	labels, err := sfClient.GetServiceExtensionMap(service, app, traefikServiceFabricExtensionKey)
+func getLabels(sfClient sfClient, service sf.ServiceItem, app sf.ApplicationItem) (map[string]string, error) {
+	labels, err := sfClient.GetServiceExtensionMap(&service, &app, traefikServiceFabricExtensionKey)
 	if err != nil {
-		log.Printf("Error retrieving serviceExtensionMap: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("error retrieving serviceExtensionMap: %w", err)
 	}
 
-	//if label.GetBoolValue(labels, traefikSFEnableLabelOverrides, traefikSFEnableLabelOverridesDefault) {
+	// if label.GetBoolValue(labels, traefikSFEnableLabelOverrides, traefikSFEnableLabelOverridesDefault) {
 	if exists, properties, err := sfClient.GetProperties(service.ID); err == nil && exists {
 		for key, value := range properties {
 			labels[key] = value
 		}
 	}
-	//}
+	// }
 	return labels, nil
 }
 
@@ -356,7 +356,7 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 	for _, i := range e {
 		name := strings.ReplaceAll(i.Name, "/", "-")
 		name = normalize(name)
-		//rule := i.Labels["traefik.router.rule.pinger"]
+		// rule := i.Labels["traefik.router.rule.pinger"]
 
 		if i.ServiceKind == kindStateless {
 			rule := fmt.Sprintf("PathPrefix(`/%s`)", i.ID)
@@ -379,6 +379,7 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 				}
 			}
 		}
+
 		for _, p := range i.Partitions {
 			if p.ServiceKind == kindStateless {
 				lbServers := make([]dynamic.Server, 0)

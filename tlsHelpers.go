@@ -1,10 +1,9 @@
 package traefikServiceFabricPlugin
 
 import (
-	"fmt"
-
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
 	"os"
 )
@@ -82,7 +81,7 @@ func (c *ClientTLS) CreateTLSConfig() (*tls.Config, error) {
 	return &tls.Config{
 		Certificates:       []tls.Certificate{cert},
 		RootCAs:            caPool,
-		InsecureSkipVerify: c.InsecureSkipVerify,
+		InsecureSkipVerify: c.InsecureSkipVerify, // nolint:gosec
 		ClientAuth:         clientAuth,
 	}, nil
 }

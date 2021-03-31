@@ -34,9 +34,3 @@ type sfClient interface {
 	GetServiceLabels(service *sf.ServiceItem, app *sf.ApplicationItem, prefix string) (map[string]string, error)
 	GetProperties(name string) (bool, map[string]string, error)
 }
-
-// replicaInstance interface provides a unified interface
-// over replicas and instances.
-type replicaInstance interface {
-	GetReplicaData() (string, *sf.ReplicaItemBase)
-}
