@@ -1,0 +1,42 @@
+{
+  "http": {
+    "routers": {
+      "fabric-TestApplication-TestService-bce46a8c-b62d-4996-89dc-7ffc00a96902": {
+        "entryPoints": [
+          "web"
+        ],
+        "middlewares": [
+          "sf-stripprefixregex_stateful"
+        ],
+        "service": "fabric-TestApplication-TestService-bce46a8c-b62d-4996-89dc-7ffc00a96902",
+        "rule": "PathPrefix(`/TestApplication/TestService/bce46a8c-b62d-4996-89dc-7ffc00a96902`)"
+      }
+    },
+    "services": {
+      "fabric-TestApplication-TestService-bce46a8c-b62d-4996-89dc-7ffc00a96902/bce46a8c-b62d-4996-89dc-7ffc00a96902": {
+        "loadBalancer": {
+          "passHostHeader": true
+        }
+      }
+    },
+    "middlewares": {
+      "sf-stripprefixregex_statefull": {
+        "stripPrefixRegex": {
+          "regex": [
+            "^/[^/]*/[^/]*/[^/]*/*"
+          ]
+        }
+      },
+      "sf-stripprefixregex_stateless": {
+        "stripPrefixRegex": {
+          "regex": [
+            "^/[^/]*/[^/]*/*"
+          ]
+        }
+      }
+    }
+  },
+  "tcp": {},
+  "udp": {},
+  "tls": {}
+}
