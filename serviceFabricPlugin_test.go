@@ -26,7 +26,7 @@ func TestNew(t *testing.T) {
 
 	config := CreateConfig()
 	config.PollInterval = "1s"
-	// config.ClusterManagementURL = "http://darioclus3.southcentralus.cloudapp.azure.com:19080/"
+	//config.ClusterManagementURL = "http://dariolinclus1.southcentralus.cloudapp.azure.com:19080"
 	config.ClusterManagementURL = server.URL
 
 	provider, err := New(context.Background(), config, "test")

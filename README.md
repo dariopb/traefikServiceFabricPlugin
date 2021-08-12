@@ -32,7 +32,7 @@ pilot:
 experimental:
   traefikServiceFabricPlugin:
     moduleName: github.com/dariopb/traefikServiceFabricPlugin
-    version: v0.1.0
+    version: v0.1.4
 
 providers:
   plugin:
@@ -42,6 +42,9 @@ providers:
       #certificate : ./cert.pem
       #certificateKey: ./cert.key
 ```
+
+## Sample deployments
+For a complete way to deploy and use the proxy in a Service Fabric cluster, please look here: https://github.com/dariopb/sf-reverseproxies-templates (those are **samples** only and should be modified according to your needs)
 
 ## License
 This software is released under the MIT License

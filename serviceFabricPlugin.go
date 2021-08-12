@@ -17,7 +17,10 @@ import (
 )
 
 const (
-	traefikServiceFabricExtensionKey = "Traefik"
+	traefikServiceFabricExtensionKey     = "Traefik"
+	traefikSFEnableService               = "Traefik.Enable"
+	traefikSFEnableLabelOverrides        = "Traefik.EnableLabelOverrides"
+	traefikSFEnableLabelOverridesDefault = true
 
 	kindStateful  = "Stateful"
 	kindStateless = "Stateless"
@@ -179,8 +182,11 @@ func (p *Provider) fetchState() ([]ServiceItemExtended, error) {
 			labels, err := getLabels(p.sfClient, service, app)
 			if err != nil {
 				log.Printf("failed to get labels: %v", err)
+				continue
 			}
-
+			if len(labels) == 0 || !GetBoolValue(labels, traefikSFEnableService, false) {
+				continue
+			}
 			item.Labels = labels
 
 			partitions, err := p.sfClient.GetPartitions(app.ID, service.ID)
@@ -310,13 +316,13 @@ func getLabels(sfClient sfClient, service sf.ServiceItem, app sf.ApplicationItem
 		return nil, fmt.Errorf("error retrieving serviceExtensionMap: %w", err)
 	}
 
-	// if label.GetBoolValue(labels, traefikSFEnableLabelOverrides, traefikSFEnableLabelOverridesDefault) {
-	if exists, properties, err := sfClient.GetProperties(service.ID); err == nil && exists {
-		for key, value := range properties {
-			labels[key] = value
+	if GetBoolValue(labels, traefikSFEnableLabelOverrides, traefikSFEnableLabelOverridesDefault) {
+		if exists, properties, err := sfClient.GetProperties(service.ID); err == nil && exists {
+			for key, value := range properties {
+				labels[key] = value
+			}
 		}
 	}
-	// }
 	return labels, nil
 }
 

@@ -1,7 +1,6 @@
 
 
 
-
 curl -X PUT   'http://dariotraefik1.southcentralus.cloudapp.azure.com:19080/Names/pinger/pinger1/$/GetProperty?api-version=6.0&IncludeValues=true'   -d '{
   "PropertyName": "traefik.router.rule.pinger",
   "Value": {
