@@ -18,8 +18,9 @@ import (
 
 const (
 	traefikServiceFabricExtensionKey     = "Traefik"
-	traefikSFEnableService               = "Traefik.Enable"
-	traefikSFEnableLabelOverrides        = "Traefik.EnableLabelOverrides"
+	traefikSFEnableService               = "traefik.http.enable"
+	traefikSFRule                        = "traefik.http.rule"
+	traefikSFEnableLabelOverrides        = "Traefik.enablelabeloverrides"
 	traefikSFEnableLabelOverridesDefault = true
 
 	kindStateful  = "Stateful"
@@ -348,55 +349,59 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 		},
 	}
 
-	configuration.HTTP.Middlewares["sf-stripprefixregex_stateless"] = &dynamic.Middleware{
+	configuration.HTTP.Middlewares["sf-stripprefixregex_nonpartitioned"] = &dynamic.Middleware{
 		StripPrefixRegex: &dynamic.StripPrefixRegex{
 			Regex: []string{"^/[^/]*/[^/]*/*"},
 		},
 	}
-	configuration.HTTP.Middlewares["sf-stripprefixregex_statefull"] = &dynamic.Middleware{
+	configuration.HTTP.Middlewares["sf-stripprefixregex_partitioned"] = &dynamic.Middleware{
 		StripPrefixRegex: &dynamic.StripPrefixRegex{
 			Regex: []string{"^/[^/]*/[^/]*/[^/]*/*"},
 		},
 	}
 
 	for _, i := range e {
-		name := strings.ReplaceAll(i.Name, "/", "-")
-		name = normalize(name)
-		// rule := i.Labels["traefik.router.rule.pinger"]
+		baseName := strings.ReplaceAll(i.Name, "/", "-")
+		baseName = normalize(baseName)
+		var baseRouter *dynamic.Router = nil
 
-		if i.ServiceKind == kindStateless {
-			rule := fmt.Sprintf("PathPrefix(`/%s`)", i.ID)
-			configuration.HTTP.Routers[name] = &dynamic.Router{
+		// If there is only one partition, expose the service name route directly
+		if len(i.Partitions) == 1 {
+			baseRouter = &dynamic.Router{
+				EntryPoints: []string{"web"},
+				Service:     baseName,
+				Middlewares: []string{},
+			}
+
+			// If a rule is explicitly provided, use it as is.
+			// Is the user responsibility in this case to add a matching stript middleware.
+			if r := GetStringValue(i.Labels, traefikSFRule, ""); r != "" {
+				baseRouter.Rule = r
+			} else {
+				baseRouter.Rule = fmt.Sprintf("PathPrefix(`/%s`)", i.ID)
+				baseRouter.Middlewares = []string{"sf-stripprefixregex_nonpartitioned"}
+			}
+
+			configuration.HTTP.Routers[baseName] = baseRouter
+		}
+
+		// Create the traefik services based on the sf service partitions
+		for _, part := range i.Partitions {
+			partitionID := part.PartitionInformation.ID
+			name := fmt.Sprintf("%s-%s", baseName, partitionID)
+			rule := fmt.Sprintf("PathPrefix(`/%s/%s`)", i.ID, partitionID)
+
+			router := &dynamic.Router{
 				EntryPoints: []string{"web"},
 				Service:     name,
 				Rule:        rule,
-				Middlewares: []string{"sf-stripprefixregex_stateless"},
+				Middlewares: []string{},
 			}
-		} else if i.ServiceKind == kindStateful {
-			for _, p := range i.Partitions {
-				partitionID := p.PartitionInformation.ID
-				name = fmt.Sprintf("%s-%s", name, partitionID)
-				rule := fmt.Sprintf("PathPrefix(`/%s/%s`)", i.ID, partitionID)
-				configuration.HTTP.Routers[name] = &dynamic.Router{
-					EntryPoints: []string{"web"},
-					Service:     name,
-					Rule:        rule,
-					Middlewares: []string{"sf-stripprefixregex_stateful"},
-				}
-			}
-		}
 
-		for _, p := range i.Partitions {
-			if p.ServiceKind == kindStateless {
-				lbServers := make([]dynamic.Server, 0)
-
-				configuration.HTTP.Services[name] = &dynamic.Service{
-					LoadBalancer: &dynamic.ServersLoadBalancer{
-						PassHostHeader: boolPtr(true),
-					},
-				}
-
-				for _, instance := range p.Instances {
+			// Populate the target endpoints
+			lbServers := make([]dynamic.Server, 0)
+			if part.ServiceKind == kindStateless {
+				for _, instance := range part.Instances {
 					url, err := getReplicaDefaultEndpoint(instance.ReplicaItemBase)
 					if err == nil && url != "" {
 						lbServers = append(lbServers, dynamic.Server{
@@ -404,20 +409,8 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 						})
 					}
 				}
-
-				configuration.HTTP.Services[name].LoadBalancer.Servers = lbServers
-			} else if p.ServiceKind == kindStateful {
-				partitionID := p.PartitionInformation.ID
-				name = fmt.Sprintf("%s/%s", name, partitionID)
-				lbServers := make([]dynamic.Server, 0)
-
-				configuration.HTTP.Services[name] = &dynamic.Service{
-					LoadBalancer: &dynamic.ServersLoadBalancer{
-						PassHostHeader: boolPtr(true),
-					},
-				}
-
-				for _, replica := range p.Replicas {
+			} else if part.ServiceKind == kindStateful {
+				for _, replica := range part.Replicas {
 					if isPrimary(replica.ReplicaItemBase) && isHealthy(replica.ReplicaItemBase) {
 						url, err := getReplicaDefaultEndpoint(replica.ReplicaItemBase)
 						if err == nil && url != "" {
@@ -427,13 +420,74 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 						}
 					}
 				}
-
-				configuration.HTTP.Services[name].LoadBalancer.Servers = lbServers
 			}
+
+			configuration.HTTP.Routers[name] = router
+
+			s, _ := p.processServiceLabels(name, &i, configuration.HTTP.Middlewares, router)
+			s.LoadBalancer.Servers = lbServers
+			configuration.HTTP.Services[name] = &s
+
+			if len(i.Partitions) == 1 {
+				configuration.HTTP.Services[baseName] = &s
+				baseRouter.Middlewares = append(baseRouter.Middlewares, router.Middlewares...)
+			}
+
+			router.Middlewares = append(router.Middlewares, "sf-stripprefixregex_partitioned")
 		}
 	}
 
 	return configuration
+}
+
+func (p *Provider) processServiceLabels(serviceName string, service *ServiceItemExtended, middlewares map[string]*dynamic.Middleware, router *dynamic.Router) (dynamic.Service, error) {
+	s := dynamic.Service{
+		LoadBalancer: &dynamic.ServersLoadBalancer{
+			PassHostHeader: boolPtr(true),
+		},
+	}
+
+	i := 0
+	for name, val := range service.Labels {
+		segs := strings.Split(name, ".")
+		if len(segs) < 3 || segs[0] != "traefik" || segs[1] != "http" {
+			continue
+		}
+
+		switch segs[2] {
+		case "loadbalancer":
+			//if f, ok := p.funcMap[name]; ok {
+			//    f.(func(*dynamic.ServersLoadBalancer, string) error)(s.LoadBalancer, val)
+			//}
+			switch name {
+			case "traefik.http.loadbalancer.passhostheader":
+				setLoadbalancerPasshostheader(s.LoadBalancer, val)
+				break
+			case "traefik.http.loadbalancer.stickiness":
+				setLoadbalancerSticky(s.LoadBalancer, val)
+				break
+			case "traefik.http.loadbalancer.healthcheck.path":
+				setLoadbalancerHealthcheckPath(s.LoadBalancer, val)
+				break
+			case "traefik.http.loadbalancer.healthcheck.interval":
+				setLoadbalancerHealthcheckInterval(s.LoadBalancer, val)
+				break
+			case "traefik.http.loadbalancer.healthcheck.scheme":
+				setLoadbalancerHealthcheckScheme(s.LoadBalancer, val)
+				break
+			}
+		case "middleware":
+			switch name {
+			case "traefik.http.middleware.stripprefix.prefixes":
+				setMiddlewareStriptprefixPrefixes(fmt.Sprintf("%s-%d", serviceName, i), middlewares, router, val)
+				break
+			}
+		}
+
+		i++
+	}
+
+	return s, nil
 }
 
 func boolPtr(v bool) *bool {

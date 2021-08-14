@@ -32,7 +32,7 @@ pilot:
 experimental:
   traefikServiceFabricPlugin:
     moduleName: github.com/dariopb/traefikServiceFabricPlugin
-    version: v0.1.4
+    version: v0.2.1
 
 providers:
   plugin:
@@ -45,6 +45,42 @@ providers:
 
 ## Sample deployments
 For a complete way to deploy and use the proxy in a Service Fabric cluster, please look here: https://github.com/dariopb/sf-reverseproxies-templates (those are **samples** only and should be modified according to your needs)
+
+### ServiceManifest file
+This is a sample SF enabled service showing the currently supported labels. If the sf name is fabric:/pinger/PingerService, the endpoint will be expose at that prefix: '/pinger/PingerService/'
+```xml
+  ...
+  <ServiceTypes>
+    <StatelessServiceType ServiceTypeName="PingerServiceType" UseImplicitHost="true">
+      <Extensions>
+        <Extension Name="traefik">
+        <Labels xmlns="http://schemas.microsoft.com/2015/03/fabact-no-schema">
+          <Label Key="traefik.http.enable">true</Label>
+          <Label Key="traefik.http.loadbalancer.passhostheader">true</Label>
+          <Label Key="traefik.http.loadbalancer.healthcheck.path">/</Label>
+          <Label Key="traefik.http.loadbalancer.healthcheck.interval">10s</Label>
+          <Label Key="traefik.http.loadbalancer.healthcheck.scheme">http</Label>
+        </Labels>
+        </Extension>
+      </Extensions>
+    </StatelessServiceType>
+  </ServiceTypes>
+  ...
+```
+
+## Supported Labels (since 0.2.x) ##
+*Rule section*
+* **traefik.http.rule**    Traefik rule to apply [PathPrefix(`/dario`))]. This rule is added on top of the default path generation. If this is set, you **have** to define a middleware to remove the prefix for the service to receive the stripped path.
+
+*Loadbalancer section*
+* **traefik.http.loadbalancer.passhostheader**          passhostheaders ['true'/'false']
+* **traefik.http.loadbalancer.healthcheck.path**        Healthcheck endpoint path ['/healtz']
+* **traefik.http.loadbalancer.healthcheck.interval**    Healthcheck interval ['10s']
+* **traefik.http.loadbalancer.healthcheck.scheme**      Healthcheck scheme ['http']
+
+*Middleware section*
+* **traefik.http.middleware.stripprefix**    prefix to strip ['/dario']
+
 
 ## License
 This software is released under the MIT License
