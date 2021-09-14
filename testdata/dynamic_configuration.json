@@ -1,36 +1,55 @@
 {
   "http": {
     "routers": {
-      "fabric-TestApplication-TestService": {
+      "fabric-TestApplication-TestService-http-ep1": {
         "entryPoints": [
           "web"
         ],
         "middlewares": [
           "sf-stripprefixregex_nonpartitioned"
         ],
-        "service": "fabric-TestApplication-TestService",
+        "service": "fabric-TestApplication-TestService-http-ep1",
         "rule": "PathPrefix(`/TestApplication/TestService`)"
       },
-      "fabric-TestApplication-TestService-bce46a8c-b62d-4996-89dc-7ffc00a96902": {
+      "fabric-TestApplication-TestService-http-ep1-bce46a8c-b62d-4996-89dc-7ffc00a96902": {
         "entryPoints": [
           "web"
         ],
         "middlewares": [
-          "sf-stripprefixregex_partitioned"
+          "sf-stripprefixregex_nonpartitioned"
         ],
-        "service": "fabric-TestApplication-TestService-bce46a8c-b62d-4996-89dc-7ffc00a96902",
-        "rule": "PathPrefix(`/TestApplication/TestService/bce46a8c-b62d-4996-89dc-7ffc00a96902`)"
+        "service": "fabric-TestApplication-TestService-http-ep1-bce46a8c-b62d-4996-89dc-7ffc00a96902",
+        "rule": "PathPrefix(`/TestApplication/TestService`) \u0026\u0026 Query(`PartitionID=bce46a8c-b62d-4996-89dc-7ffc00a96902`)"
       }
     },
     "services": {
-      "fabric-TestApplication-TestService": {
+      "fabric-TestApplication-TestService-http-ep1": {
         "loadBalancer": {
-          "passHostHeader": true
+          "servers": [
+            {
+              "url": "http://1.1.1.1:9999",
+              "Scheme": "",
+              "Port": ""
+            }
+          ],
+          "healthCheck": {
+            "path": "/",
+            "interval": "10s",
+            "followRedirects": null
+          },
+          "passHostHeader": null
         }
       },
-      "fabric-TestApplication-TestService-bce46a8c-b62d-4996-89dc-7ffc00a96902": {
+      "fabric-TestApplication-TestService-http-ep1-bce46a8c-b62d-4996-89dc-7ffc00a96902": {
         "loadBalancer": {
-          "passHostHeader": true
+          "servers": [
+            {
+              "url": "http://1.1.1.1:9999",
+              "Scheme": "",
+              "Port": ""
+            }
+          ],
+          "passHostHeader": null
         }
       }
     },
@@ -39,13 +58,6 @@
         "stripPrefixRegex": {
           "regex": [
             "^/[^/]*/[^/]*/*"
-          ]
-        }
-      },
-      "sf-stripprefixregex_partitioned": {
-        "stripPrefixRegex": {
-          "regex": [
-            "^/[^/]*/[^/]*/[^/]*/*"
           ]
         }
       }

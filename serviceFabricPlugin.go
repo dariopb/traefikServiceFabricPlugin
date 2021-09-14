@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -29,24 +31,29 @@ const (
 
 // Config the plugin configuration.
 type Config struct {
-	PollInterval         string `json:"pollInterval,omitempty"`
-	ClusterManagementURL string `json:"clusterManagementURL,omitempty"`
+	PollInterval   string `json:"pollInterval,omitempty"`
+	HttpEntrypoint string `json:"httpEntrypoint,omitempty"`
 
-	Certificate    string `json:"certificate,omitempty"`
-	CertificateKey string `json:"certificateKey,omitempty"`
+	ClusterManagementURL string `json:"clusterManagementURL,omitempty"`
+	Certificate          string `json:"certificate,omitempty"`
+	CertificateKey       string `json:"certificateKey,omitempty"`
+	InsecureSkipVerify   bool   `json:"insecureSkipVerify,omitempty"`
 }
 
 // CreateConfig creates the default plugin configuration.
 func CreateConfig() *Config {
 	return &Config{
-		PollInterval: "5s",
+		PollInterval:   "5s",
+		HttpEntrypoint: "web",
 	}
 }
 
 // Provider a simple provider plugin.
 type Provider struct {
-	name         string
-	pollInterval time.Duration
+	name           string
+	pollInterval   time.Duration
+	httpEntrypoint string
+	tcpEntrypoint  string
 
 	clusterManagementURL string
 	apiVersion           string
@@ -68,13 +75,14 @@ func New(ctx context.Context, config *Config, name string) (*Provider, error) {
 		apiVersion:           sf.DefaultAPIVersion,
 		pollInterval:         pi,
 		clusterManagementURL: config.ClusterManagementURL,
+		httpEntrypoint:       config.HttpEntrypoint,
 	}
 
 	if config.CertificateKey != "" && config.Certificate != "" {
 		p.tlsConfig = &ClientTLS{
 			Cert:               config.Certificate,
 			Key:                config.CertificateKey,
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: config.InsecureSkipVerify,
 		}
 	}
 
@@ -110,12 +118,6 @@ func (p *Provider) Provide(cfgChan chan<- json.Marshaler) error {
 	p.cancel = cancel
 
 	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				log.Print(err)
-			}
-		}()
-
 		p.loadConfiguration(ctx, cfgChan)
 	}()
 
@@ -160,7 +162,17 @@ func normalize(name string) string {
 	return strings.Join(strings.FieldsFunc(name, fargs), "-")
 }
 
+var iii int = 0
+
 func (p *Provider) fetchState() ([]ServiceItemExtended, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Print(err)
+		}
+	}()
+
+	log.Print("Fetching state from cluster")
+
 	apps, err := p.sfClient.GetApplications()
 	if err != nil {
 		log.Printf("failed to gets applications %v", err)
@@ -185,7 +197,7 @@ func (p *Provider) fetchState() ([]ServiceItemExtended, error) {
 				log.Printf("failed to get labels: %v", err)
 				continue
 			}
-			if len(labels) == 0 || !GetBoolValue(labels, traefikSFEnableService, false) {
+			if len(labels) == 0 { //|| !GetBoolValue(labels, traefikSFEnableService, false) {
 				continue
 			}
 			item.Labels = labels
@@ -281,6 +293,28 @@ func getReplicaDefaultEndpoint(replicaData *sf.ReplicaItemBase) (string, error) 
 	return defaultHTTPEndpoint, nil
 }
 
+func getReplicaEndpoint(epName string, replicaData *sf.ReplicaItemBase) (string, error) {
+	endpoints, err := decodeEndpointData(replicaData.Address)
+	if err != nil {
+		return "", err
+	}
+
+	var address string
+	for k, v := range endpoints {
+		if k == epName {
+			if strings.Contains(v, "http") {
+				address = v
+				break
+			}
+		}
+	}
+
+	if len(address) == 0 {
+		return "", errors.New("no address for endpoint found")
+	}
+	return address, nil
+}
+
 func decodeEndpointData(endpointData string) (map[string]string, error) {
 	var endpointsMap map[string]map[string]string
 
@@ -327,8 +361,8 @@ func getLabels(sfClient sfClient, service sf.ServiceItem, app sf.ApplicationItem
 	return labels, nil
 }
 
-func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Configuration {
-	configuration := &dynamic.Configuration{
+func TestRawRun() {
+	conf := dynamic.Configuration{
 		HTTP: &dynamic.HTTPConfiguration{
 			Routers:           make(map[string]*dynamic.Router),
 			Middlewares:       make(map[string]*dynamic.Middleware),
@@ -349,145 +383,291 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 		},
 	}
 
-	configuration.HTTP.Middlewares["sf-stripprefixregex_nonpartitioned"] = &dynamic.Middleware{
-		StripPrefixRegex: &dynamic.StripPrefixRegex{
-			Regex: []string{"^/[^/]*/[^/]*/*"},
-		},
+	kvs := []*KVPair{
+		{Key: "traefik.http.routers.ddd.rule", Value: "Prefix('/dario')"},
+		{Key: "traefik.http.middlewares.sf-stripprefixregex_nonpartitioned.stripPrefixRegex.Regex.0", Value: "^/[^/]*/[^/]*/*"},
 	}
-	configuration.HTTP.Middlewares["sf-stripprefixregex_partitioned"] = &dynamic.Middleware{
-		StripPrefixRegex: &dynamic.StripPrefixRegex{
-			Regex: []string{"^/[^/]*/[^/]*/[^/]*/*"},
-		},
+
+	err := Decode(kvs, &conf, "traefik")
+	if err != nil {
+		log.Printf("failed processing kvs entries: %v", err)
+	}
+
+	jsonData, _ := json.MarshalIndent(conf, "", "\t")
+
+	log.Printf("Done: [%s]", string(jsonData))
+}
+
+func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Configuration {
+
+	kvs := []*KVPair{
+		//{Key: "traefik.http.middlewares.111.stripPrefix.prefixes", Value: "/dario , /dario1"},
+		//{Key: "traefik.http.middlewares.111.stripPrefix.Prefixes.1", Value: "/dario"},
+		//{Key: "traefik.http.routers.ddd.rule", Value: "PathPrefix(`/dario9`)"},
+		{Key: "traefik.http.middlewares.sf-stripprefixregex_nonpartitioned.stripPrefixRegex.Regex", Value: "^/[^/]*/[^/]*/*"},
 	}
 
 	for _, i := range e {
-		baseName := strings.ReplaceAll(i.Name, "/", "-")
-		baseName = normalize(baseName)
-		var baseRouter *dynamic.Router = nil
-
-		// If there is only one partition, expose the service name route directly
-		if len(i.Partitions) == 1 {
-			baseRouter = &dynamic.Router{
-				EntryPoints: []string{"web"},
-				Service:     baseName,
-				Middlewares: []string{},
-			}
-
-			// If a rule is explicitly provided, use it as is.
-			// Is the user responsibility in this case to add a matching stript middleware.
-			if r := GetStringValue(i.Labels, traefikSFRule, ""); r != "" {
-				baseRouter.Rule = r
-			} else {
-				baseRouter.Rule = fmt.Sprintf("PathPrefix(`/%s`)", i.ID)
-				baseRouter.Middlewares = []string{"sf-stripprefixregex_nonpartitioned"}
-			}
-
-			configuration.HTTP.Routers[baseName] = baseRouter
+		/*kv := map[string]string{
+			"traefik.http.ep1": "true",
+			//"traefik.http.ep1.router.rule":                           "PathPrefix(`/dario`)",
+			//"traefik.http.ep1.middlewares.1.stripPrefix.prefixes":    "/dario",
+			"traefik.http.ep1.service.loadbalancer.passhostheader":       "false",
+			"traefik.http.ep1.service.loadbalancer.healthcheck.path":     "/",
+			"traefik.http.ep1.service.loadbalancer.healthcheck.interval": "10s",
 		}
+		*/
 
-		// Create the traefik services based on the sf service partitions
-		for _, part := range i.Partitions {
-			partitionID := part.PartitionInformation.ID
-			name := fmt.Sprintf("%s-%s", baseName, partitionID)
-			rule := fmt.Sprintf("PathPrefix(`/%s/%s`)", i.ID, partitionID)
-
-			router := &dynamic.Router{
-				EntryPoints: []string{"web"},
-				Service:     name,
-				Rule:        rule,
-				Middlewares: []string{},
-			}
-
-			// Populate the target endpoints
-			lbServers := make([]dynamic.Server, 0)
-			if part.ServiceKind == kindStateless {
-				for _, instance := range part.Instances {
-					url, err := getReplicaDefaultEndpoint(instance.ReplicaItemBase)
-					if err == nil && url != "" {
-						lbServers = append(lbServers, dynamic.Server{
-							URL: url,
-						})
-					}
-				}
-			} else if part.ServiceKind == kindStateful {
-				for _, replica := range part.Replicas {
-					if isPrimary(replica.ReplicaItemBase) && isHealthy(replica.ReplicaItemBase) {
-						url, err := getReplicaDefaultEndpoint(replica.ReplicaItemBase)
-						if err == nil && url != "" {
-							lbServers = append(lbServers, dynamic.Server{
-								URL: url,
-							})
-						}
-					}
-				}
-			}
-
-			configuration.HTTP.Routers[name] = router
-
-			s, _ := p.processServiceLabels(name, &i, configuration.HTTP.Middlewares, router)
-			s.LoadBalancer.Servers = lbServers
-			configuration.HTTP.Services[name] = &s
-
-			if len(i.Partitions) == 1 {
-				configuration.HTTP.Services[baseName] = &s
-				baseRouter.Middlewares = append(baseRouter.Middlewares, router.Middlewares...)
-			}
-
-			router.Middlewares = append(router.Middlewares, "sf-stripprefixregex_partitioned")
-		}
-	}
-
-	return configuration
-}
-
-func (p *Provider) processServiceLabels(serviceName string, service *ServiceItemExtended, middlewares map[string]*dynamic.Middleware, router *dynamic.Router) (dynamic.Service, error) {
-	s := dynamic.Service{
-		LoadBalancer: &dynamic.ServersLoadBalancer{
-			PassHostHeader: boolPtr(true),
-		},
-	}
-
-	i := 0
-	for name, val := range service.Labels {
-		segs := strings.Split(name, ".")
-		if len(segs) < 3 || segs[0] != "traefik" || segs[1] != "http" {
+		// get a map of endpoints names to a template for the rules
+		endpoints, err := p.getKVItemsFromLabels(i.Labels)
+		if err != nil {
+			log.Printf("failed processing labels to kvs entries for service [%s]: %v", i.Name, err)
 			continue
 		}
 
-		switch segs[2] {
-		case "loadbalancer":
-			//if f, ok := p.funcMap[name]; ok {
-			//    f.(func(*dynamic.ServersLoadBalancer, string) error)(s.LoadBalancer, val)
-			//}
-			switch name {
-			case "traefik.http.loadbalancer.passhostheader":
-				setLoadbalancerPasshostheader(s.LoadBalancer, val)
-				break
-			case "traefik.http.loadbalancer.stickiness":
-				setLoadbalancerSticky(s.LoadBalancer, val)
-				break
-			case "traefik.http.loadbalancer.healthcheck.path":
-				setLoadbalancerHealthcheckPath(s.LoadBalancer, val)
-				break
-			case "traefik.http.loadbalancer.healthcheck.interval":
-				setLoadbalancerHealthcheckInterval(s.LoadBalancer, val)
-				break
-			case "traefik.http.loadbalancer.healthcheck.scheme":
-				setLoadbalancerHealthcheckScheme(s.LoadBalancer, val)
-				break
-			}
-		case "middleware":
-			switch name {
-			case "traefik.http.middleware.stripprefix.prefixes":
-				setMiddlewareStriptprefixPrefixes(fmt.Sprintf("%s-%d", serviceName, i), middlewares, router, val)
-				break
-			}
-		}
+		// generate the predefined rules for the endpoints
+		for epName, ep := range endpoints {
+			rules := map[string]string{}
 
-		i++
+			baseName := strings.ReplaceAll(i.Name, "/", "-")
+			baseName = normalize(baseName)
+			baseName = fmt.Sprintf("%s-%s", baseName, epName)
+
+			// If there is only one partition, expose the service name route directly
+			if len(i.Partitions) == 1 {
+				// Expose both a default endpoint and the QP endpoint
+				if ep.protocol == "http" {
+					rule := fmt.Sprintf("PathPrefix(`/%s`)", i.ID)
+					p.generateHTTPRuleEntries(epName, ep.rules, baseName, rule, i.Partitions[0], rules)
+				} else if ep.protocol == "tcp" {
+					rule := "HostSNI(`*`)"
+					p.generateTCPRuleEntries(epName, ep.rules, baseName, rule, i.Partitions[0], rules)
+				}
+			}
+
+			// Partition support only for http protocol
+			if ep.protocol == "http" {
+				// Create the traefik services based on the sf service partitions
+				for _, part := range i.Partitions {
+					partitionID := part.PartitionInformation.ID
+					name := fmt.Sprintf("%s-%s", baseName, partitionID)
+					rule := fmt.Sprintf("PathPrefix(`/%s`) && Query(`PartitionID=%s`)", i.ID, partitionID)
+
+					p.generateHTTPRuleEntries(epName, ep.rules, name, rule, part, rules)
+				}
+			}
+
+			kvsService := []*KVPair{}
+			for k, v := range rules {
+				kvsService = append(kvsService, &KVPair{k, v})
+			}
+			// validate partial/service configuration, skip them if it fails
+			_, err := p.getConfigFromKeys(kvsService)
+			if err != nil {
+				log.Printf("failed processing kvs entries for service [%s]: %v", baseName, err)
+				continue
+			}
+
+			kvs = append(kvs, kvsService...)
+		}
 	}
 
-	return s, nil
+	// Finally return the right objects
+	conf, err := p.getConfigFromKeys(kvs)
+	if err != nil {
+		log.Printf("failed processing kvs entries: %v", err)
+		return nil
+	}
+
+	return conf
+}
+
+type ProtocolRules struct {
+	protocol string
+	rules    []*KVPair
+}
+
+// getKVItemsFromLabels generates a map of endpoints names to a template for the rules
+func (p *Provider) getKVItemsFromLabels(kv map[string]string) (map[string]*ProtocolRules, error) {
+	keys := make([]string, 0, len(kv))
+	for k := range kv {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	endpoints := map[string]*ProtocolRules{}
+	for _, k := range keys {
+		t := strings.Split(k, ".")
+		if len(t) == 3 && kv[k] == "true" {
+			if t[1] == "http" || t[1] == "tcp" {
+				endpoints[t[1]+"-"+t[2]] = &ProtocolRules{t[1], []*KVPair{}}
+			}
+		} else {
+			protoRules, ok := endpoints[t[1]+"-"+t[2]]
+			if !ok {
+				continue
+			}
+			switch t[1] {
+			case "http":
+				if len(t) >= 5 {
+					switch t[3] {
+					case "router":
+						protoRules.rules = append(protoRules.rules, &KVPair{Key: fmt.Sprintf("traefik.http.routers.[SERVICE].%s", strings.Join(t[4:], ".")), Value: kv[k]})
+					case "middlewares":
+						//traefik.http.ep1.middlewares.1.stripPrefix.prefixes.0
+						protoRules.rules = append(protoRules.rules, &KVPair{Key: fmt.Sprintf("traefik.http.middlewares.[SERVICE]-%s.%s", t[4], strings.Join(t[5:], ".")), Value: kv[k]})
+						protoRules.rules = append(protoRules.rules, &KVPair{Key: fmt.Sprintf("traefik.http.routers.[SERVICE].middlewares"), Value: "[SERVICE]-" + t[4]})
+					case "service":
+						//traefik.http.ep1.service.loadbalancer.healthcheck.path
+						protoRules.rules = append(protoRules.rules, &KVPair{Key: fmt.Sprintf("traefik.http.services.[SERVICE].%s", strings.Join(t[4:], ".")), Value: kv[k]})
+					default:
+					}
+				}
+			case "tcp":
+				if len(t) >= 5 {
+					switch t[3] {
+					case "router":
+						protoRules.rules = append(protoRules.rules, &KVPair{Key: fmt.Sprintf("traefik.tcp.routers.[SERVICE].%s", strings.Join(t[4:], ".")), Value: kv[k]})
+					case "service":
+						//traefik.tcp.ep1.service.loadbalancer.terminationDelay
+						protoRules.rules = append(protoRules.rules, &KVPair{Key: fmt.Sprintf("traefik.tcp.services.[SERVICE].%s", strings.Join(t[4:], ".")), Value: kv[k]})
+					default:
+					}
+				}
+			}
+		}
+	}
+
+	return endpoints, nil
+}
+
+func (p *Provider) getConfigFromKeys(kvs []*KVPair) (*dynamic.Configuration, error) {
+	conf := &dynamic.Configuration{
+		HTTP: &dynamic.HTTPConfiguration{
+			Routers:           make(map[string]*dynamic.Router),
+			Middlewares:       make(map[string]*dynamic.Middleware),
+			Services:          make(map[string]*dynamic.Service),
+			ServersTransports: make(map[string]*dynamic.ServersTransport),
+		},
+		TCP: &dynamic.TCPConfiguration{
+			Routers:  make(map[string]*dynamic.TCPRouter),
+			Services: make(map[string]*dynamic.TCPService),
+		},
+		TLS: &dynamic.TLSConfiguration{
+			Stores:  make(map[string]tls.Store),
+			Options: make(map[string]tls.Options),
+		},
+		UDP: &dynamic.UDPConfiguration{
+			Routers:  make(map[string]*dynamic.UDPRouter),
+			Services: make(map[string]*dynamic.UDPService),
+		},
+	}
+
+	err := Decode(kvs, conf, "traefik")
+	if err != nil {
+		log.Printf("failed processing kvs entries: %v", err)
+		return nil, err
+	}
+	return conf, err
+}
+
+func (p *Provider) generateHTTPRuleEntries(epName string, ep []*KVPair, name string, rule string, part PartitionItemExtended, rules map[string]string) {
+	// Populate the target endpoints
+	addedEndpoint := false
+	if part.ServiceKind == kindStateless {
+		for i, instance := range part.Instances {
+			url, err := getReplicaDefaultEndpoint(instance.ReplicaItemBase)
+			if err == nil && url != "" {
+				addedEndpoint = true
+				rules[fmt.Sprintf("traefik.http.services.%s.loadbalancer.servers.%d.url", name, i)] = url
+			}
+		}
+	} else if part.ServiceKind == kindStateful {
+		for i, replica := range part.Replicas {
+			if isPrimary(replica.ReplicaItemBase) && isHealthy(replica.ReplicaItemBase) {
+				url, err := getReplicaDefaultEndpoint(replica.ReplicaItemBase)
+				if err == nil && url != "" {
+					addedEndpoint = true
+					rules[fmt.Sprintf("traefik.http.services.%s.loadbalancer.servers.%d.url", name, i)] = url
+				}
+			}
+		}
+	}
+
+	if addedEndpoint {
+		rules[fmt.Sprintf("traefik.http.routers.%s.entryPoints", name)] = p.httpEntrypoint
+		rules[fmt.Sprintf("traefik.http.routers.%s.service", name)] = name
+		rules[fmt.Sprintf("traefik.http.routers.%s.rule", name)] = rule
+
+		rules[fmt.Sprintf("traefik.http.routers.%s.middlewares", name)] = "sf-stripprefixregex_nonpartitioned"
+
+		// add the user provided ones
+		for _, entry := range ep {
+			entry.Key = strings.Replace(entry.Key, "[SERVICE]", name, 1)
+			entry.Value = strings.Replace(entry.Value, "[SERVICE]", name, 1)
+			rules[entry.Key] = entry.Value
+		}
+	}
+}
+
+func (p *Provider) generateTCPRuleEntries(epName string, ep []*KVPair, name string, rule string, part PartitionItemExtended, rules map[string]string) {
+	// Populate the target endpoints
+	addedEndpoint := false
+	if part.ServiceKind == kindStateless {
+		for i, instance := range part.Instances {
+			url, err := getReplicaDefaultEndpoint(instance.ReplicaItemBase)
+			if err != nil {
+				continue
+			}
+			host, _, err := parseRawURL(url)
+			if err == nil && url != "" {
+				addedEndpoint = true
+				rules[fmt.Sprintf("traefik.tcp.services.%s.loadbalancer.servers.%d.address", name, i)] = host
+			}
+		}
+	} else if part.ServiceKind == kindStateful {
+		for i, replica := range part.Replicas {
+			if isPrimary(replica.ReplicaItemBase) && isHealthy(replica.ReplicaItemBase) {
+				url, err := getReplicaDefaultEndpoint(replica.ReplicaItemBase)
+				if err != nil {
+					continue
+				}
+				host, _, err := parseRawURL(url)
+				if err == nil && url != "" {
+					addedEndpoint = true
+					rules[fmt.Sprintf("traefik.tcp.services.%s.loadbalancer.servers.%d.address", name, i)] = host
+				}
+			}
+		}
+	}
+
+	if addedEndpoint {
+		//rules[fmt.Sprintf("traefik.tcp.routers.%s.entryPoints", name) = "tcpport"
+		rules[fmt.Sprintf("traefik.tcp.routers.%s.service", name)] = name
+		rules[fmt.Sprintf("traefik.tcp.routers.%s.rule", name)] = rule
+
+		// add the user provided ones
+		for _, entry := range ep {
+			entry.Key = strings.Replace(entry.Key, "[SERVICE]", name, 1)
+			entry.Value = strings.Replace(entry.Value, "[SERVICE]", name, 1)
+			rules[entry.Key] = entry.Value
+		}
+	}
+}
+
+func parseRawURL(rawurl string) (host string, scheme string, err error) {
+	u, err := url.ParseRequestURI(rawurl)
+	if err != nil || u.Host == "" {
+		u, repErr := url.ParseRequestURI("tcp://" + rawurl)
+		if repErr != nil {
+			fmt.Printf("Could not parse raw url: %s, error: %v", rawurl, err)
+			return "", "", err
+		}
+		err = nil
+		return u.Host, u.Scheme, nil
+	}
+
+	return u.Host, u.Scheme, nil
 }
 
 func boolPtr(v bool) *bool {

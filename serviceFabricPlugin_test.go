@@ -12,6 +12,10 @@ import (
 	"testing"
 )
 
+func TestRaw(t *testing.T) {
+	//TestRawRun()
+}
+
 func TestNew(t *testing.T) {
 	mux := http.NewServeMux()
 	server := httptest.NewServer(mux)
@@ -19,6 +23,7 @@ func TestNew(t *testing.T) {
 
 	mux.Handle("/Applications/TestApplication/$/GetServices", mock("services.json"))
 	mux.Handle("/Applications/TestApplication/$/GetServices/TestApplication/TestService/$/GetPartitions/", mock("partitions.json"))
+	mux.Handle("/Applications/TestApplication/$/GetServices/TestApplication/TestService/$/GetPartitions/bce46a8c-b62d-4996-89dc-7ffc00a96902/$/GetReplicas", mock("replicas.json"))
 	mux.Handle("/Applications/", mock("applications.json"))
 	mux.Handle("/ApplicationTypes/TestApplicationType/$/GetServiceTypes", mock("extensions.json"))
 	mux.Handle("/Names/TestApplication/TestService", mock("services.json"))
@@ -26,8 +31,14 @@ func TestNew(t *testing.T) {
 
 	config := CreateConfig()
 	config.PollInterval = "1s"
-	//config.ClusterManagementURL = "http://dariolinclus1.southcentralus.cloudapp.azure.com:19080"
+	config.InsecureSkipVerify = false
+	//config.ClusterManagementURL = "https://darioclus90.southcentralus.cloudapp.azure.com:19080"
+	config.ClusterManagementURL = "http://darioclus1.southcentralus.cloudapp.azure.com:19080"
+	config.ClusterManagementURL = "http://localhost:19080"
 	config.ClusterManagementURL = server.URL
+
+	config.Certificate = ""    //"C:/projects/sf_stuff/traefik/darioclient.crt.pem"
+	config.CertificateKey = "" //"C:/projects/sf_stuff/traefik/darioclient.key.pem"
 
 	provider, err := New(context.Background(), config, "test")
 	if err != nil {
@@ -71,7 +82,7 @@ func TestNew(t *testing.T) {
 	dataClean := strings.ReplaceAll(string(dataJSON), "\r", "")
 
 	if expected != dataClean {
-		t.Fatalf("got %s, want: %s", expected, dataClean)
+		t.Fatalf("got %s, want: %s", dataClean, expected)
 	}
 }
 

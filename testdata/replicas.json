@@ -1,0 +1,12 @@
+{
+  "ContinuationToken": "",
+  "Items": [
+    {
+      "Address" : "{ \"Endpoints\" : { \"ep1\" : \"http://1.1.1.1:9999\" } }",
+      "ReplicaStatus" : "Ready",
+      "ReplicaRole" : "Primary",
+
+      "ServiceKind": "Stateful"
+    }
+  ]
+}
