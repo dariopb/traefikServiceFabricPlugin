@@ -32,7 +32,7 @@ pilot:
 experimental:
   traefikServiceFabricPlugin:
     moduleName: github.com/dariopb/traefikServiceFabricPlugin
-    version: v0.2.1
+    version: v0.2.2
 
 providers:
   plugin:
