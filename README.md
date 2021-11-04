@@ -56,6 +56,7 @@ This is a sample SF enabled service showing the currently supported labels. If t
         <Extension Name="traefik">
         <Labels xmlns="http://schemas.microsoft.com/2015/03/fabact-no-schema">
           <Label Key="traefik.http.enable">true</Label>
+          <Label Key="traefik.http.entrypoints">web</Label>
           <Label Key="traefik.http.loadbalancer.passhostheader">true</Label>
           <Label Key="traefik.http.loadbalancer.healthcheck.path">/</Label>
           <Label Key="traefik.http.loadbalancer.healthcheck.interval">10s</Label>
@@ -69,6 +70,10 @@ This is a sample SF enabled service showing the currently supported labels. If t
 ```
 
 ## Supported Labels (since 0.2.x) ##
+
+*Entrypoints section*
+* **traefik.http.entrypoints** Comma separated list of entrypoints to be assigned to router, e.g., Web, WebSecure.
+
 *Rule section*
 * **traefik.http.rule**    Traefik rule to apply [PathPrefix(`/dario`))]. This rule is added on top of the default path generation. If this is set, you **have** to define a middleware to remove the prefix for the service to receive the stripped path.
 
