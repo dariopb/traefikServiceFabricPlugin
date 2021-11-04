@@ -366,7 +366,7 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 		baseName = normalize(baseName)
 		var baseRouter *dynamic.Router = nil
 
-		entryPoints := strings.Split(GetStringValue(i.Labels, traefikSFEntryPoints, "web"), ",")
+		entryPoints := strings.Split(strings.TrimSpace(GetStringValue(i.Labels, traefikSFEntryPoints, "web")), ",")
 
 		// If there is only one partition, expose the service name route directly
 		if len(i.Partitions) == 1 {
