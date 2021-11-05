@@ -19,6 +19,7 @@ import (
 const (
 	traefikServiceFabricExtensionKey     = "Traefik"
 	traefikSFEnableService               = "traefik.http.enable"
+	traefikSFEntryPoints                 = "traefik.http.entrypoints"
 	traefikSFRule                        = "traefik.http.rule"
 	traefikSFEnableLabelOverrides        = "Traefik.enablelabeloverrides"
 	traefikSFEnableLabelOverridesDefault = true
@@ -365,16 +366,18 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 		baseName = normalize(baseName)
 		var baseRouter *dynamic.Router = nil
 
+		entryPoints := strings.Split(strings.TrimSpace(GetStringValue(i.Labels, traefikSFEntryPoints, "web")), ",")
+
 		// If there is only one partition, expose the service name route directly
 		if len(i.Partitions) == 1 {
 			baseRouter = &dynamic.Router{
-				EntryPoints: []string{"web"},
+				EntryPoints: entryPoints,
 				Service:     baseName,
 				Middlewares: []string{},
 			}
 
 			// If a rule is explicitly provided, use it as is.
-			// Is the user responsibility in this case to add a matching stript middleware.
+			// Is the user responsibility in this case to add a matching strip middleware.
 			if r := GetStringValue(i.Labels, traefikSFRule, ""); r != "" {
 				baseRouter.Rule = r
 			} else {
@@ -392,7 +395,7 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 			rule := fmt.Sprintf("PathPrefix(`/%s/%s`)", i.ID, partitionID)
 
 			router := &dynamic.Router{
-				EntryPoints: []string{"web"},
+				EntryPoints: entryPoints,
 				Service:     name,
 				Rule:        rule,
 				Middlewares: []string{},
