@@ -56,8 +56,10 @@ func setLoadbalancerSticky(lb *dynamic.ServersLoadBalancer, val string) error {
 		v = false
 	}
 
+	// Stickiness requires element "Sticky" and under that element "Cookie".
 	if v {
 		lb.Sticky = &dynamic.Sticky{}
+		lb.Sticky.Cookie = &dynamic.Cookie{}
 	}
 	return nil
 }
