@@ -427,12 +427,13 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 
 			configuration.HTTP.Routers[name] = router
 
-			s, _ := p.processServiceLabels(name, &i, configuration.HTTP.Middlewares, router)
-			s.LoadBalancer.Servers = lbServers
-			configuration.HTTP.Services[name] = &s
+			var service dynamic.Service
+			service, _ = p.processServiceLabels(name, &i, configuration.HTTP.Middlewares, router)
+			service.LoadBalancer.Servers = lbServers
+			configuration.HTTP.Services[name] = &service
 
 			if len(i.Partitions) == 1 {
-				configuration.HTTP.Services[baseName] = &s
+				configuration.HTTP.Services[baseName] = &service
 				baseRouter.Middlewares = append(baseRouter.Middlewares, router.Middlewares...)
 			}
 
@@ -465,7 +466,6 @@ func (p *Provider) processServiceLabels(serviceName string, service *ServiceItem
 			switch name {
 			case "traefik.http.loadbalancer.passhostheader":
 				setLoadbalancerPasshostheader(s.LoadBalancer, val)
-				break
 			case "traefik.http.loadbalancer.stickiness":
 				setLoadbalancerSticky(s.LoadBalancer, val)
 			case "traefik.http.loadbalancer.stickiness.secure":
@@ -478,22 +478,17 @@ func (p *Provider) processServiceLabels(serviceName string, service *ServiceItem
 				setLoadbalancerStickyCookieName(s.LoadBalancer, val)
 			case "traefik.http.loadbalancer.healthcheck.path":
 				setLoadbalancerHealthcheckPath(s.LoadBalancer, val)
-				break
 			case "traefik.http.loadbalancer.healthcheck.interval":
 				setLoadbalancerHealthcheckInterval(s.LoadBalancer, val)
-				break
 			case "traefik.http.loadbalancer.healthcheck.scheme":
 				setLoadbalancerHealthcheckScheme(s.LoadBalancer, val)
-				break
 			}
 		case "middleware":
 			switch name {
 			case "traefik.http.middleware.stripprefix.prefixes":
 				setMiddlewareStriptprefixPrefixes(fmt.Sprintf("%s-%d", serviceName, i), middlewares, router, val)
-				break
 			}
 		}
-
 		i++
 	}
 
