@@ -56,13 +56,60 @@ func setLoadbalancerSticky(lb *dynamic.ServersLoadBalancer, val string) error {
 		v = false
 	}
 
-	// Stickiness requires element "Sticky" and under that element "Cookie".
 	if v {
-		lb.Sticky = &dynamic.Sticky{}
-		lb.Sticky.Cookie = &dynamic.Cookie{}
+		if lb.Sticky == nil {
+			lb.Sticky = &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+		}
 	}
 	return nil
 }
+
+func setLoadbalancerStickySecure(lb *dynamic.ServersLoadBalancer, val string) error {
+	v, err := strconv.ParseBool(val)
+	if err != nil {
+		v = false
+	}
+
+	if v {
+		if lb.Sticky == nil {
+			lb.Sticky = &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+		}
+		lb.Sticky.Cookie.Secure = v
+	}
+	return nil
+}
+
+func setLoadbalancerStickyHttpOnly(lb *dynamic.ServersLoadBalancer, val string) error {
+	v, err := strconv.ParseBool(val)
+	if err != nil {
+		v = false
+	}
+
+	if v {
+		if lb.Sticky == nil {
+			lb.Sticky = &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+		}
+		lb.Sticky.Cookie.HTTPOnly = v
+	}
+	return nil
+}
+
+func setLoadbalancerStickySameSite(lb *dynamic.ServersLoadBalancer, val string) error {
+	if lb.Sticky == nil {
+		lb.Sticky = &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+	}
+	lb.Sticky.Cookie.SameSite = val
+	return nil
+}
+
+func setLoadbalancerStickyCookieName(lb *dynamic.ServersLoadBalancer, val string) error {
+	if lb.Sticky == nil {
+		lb.Sticky = &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+	}
+	lb.Sticky.Cookie.Name = val
+	return nil
+}
+
 
 func setLoadbalancerHealthcheckPath(lb *dynamic.ServersLoadBalancer, val string) error {
 	if lb.HealthCheck == nil {

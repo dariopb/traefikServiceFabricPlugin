@@ -468,7 +468,14 @@ func (p *Provider) processServiceLabels(serviceName string, service *ServiceItem
 				break
 			case "traefik.http.loadbalancer.stickiness":
 				setLoadbalancerSticky(s.LoadBalancer, val)
-				break
+			case "traefik.http.loadbalancer.stickiness.secure":
+				setLoadbalancerStickySecure(s.LoadBalancer, val)
+			case "traefik.http.loadbalancer.stickiness.httpOnly":
+				setLoadbalancerStickyHttpOnly(s.LoadBalancer, val)
+			case "traefik.http.loadbalancer.stickiness.sameSite":
+				setLoadbalancerStickySameSite(s.LoadBalancer, val)
+			case "traefik.http.loadbalancer.stickiness.cookieName":
+				setLoadbalancerStickyCookieName(s.LoadBalancer, val)
 			case "traefik.http.loadbalancer.healthcheck.path":
 				setLoadbalancerHealthcheckPath(s.LoadBalancer, val)
 				break
