@@ -61,6 +61,11 @@ This is a sample SF enabled service showing the currently supported labels. If t
           <Label Key="traefik.http.loadbalancer.healthcheck.path">/</Label>
           <Label Key="traefik.http.loadbalancer.healthcheck.interval">10s</Label>
           <Label Key="traefik.http.loadbalancer.healthcheck.scheme">http</Label>
+          <Label Key="traefik.http.loadbalancer.stickiness">true</Label>
+          <Label Key="traefik.http.loadbalancer.stickiness.secure">true</Label>
+          <Label Key="traefik.http.loadbalancer.stickiness.httpOnly">true</Label>
+          <Label Key="traefik.http.loadbalancer.stickiness.sameSite">none</Label>
+          <Label Key="traefik.http.loadbalancer.stickiness.cookieName">stickycookie</Label>
         </Labels>
         </Extension>
       </Extensions>
