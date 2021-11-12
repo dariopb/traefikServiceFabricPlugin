@@ -82,6 +82,11 @@ This is a sample SF enabled service showing the currently supported labels. If t
 * **traefik.http.loadbalancer.healthcheck.path**        Healthcheck endpoint path ['/healtz']
 * **traefik.http.loadbalancer.healthcheck.interval**    Healthcheck interval ['10s']
 * **traefik.http.loadbalancer.healthcheck.scheme**      Healthcheck scheme ['http']
+* **traefik.http.loadbalancer.stickiness**      Enable sticky sessions ['true'/'false']
+* **traefik.http.loadbalancer.stickiness.secure**      Enable Secure flag for sticky session cookie ['true'/'false']
+* **traefik.http.loadbalancer.stickiness.httpOnly**      Enable HTTPOnly flag for sticky session cookie ['true'/'false']
+* **traefik.http.loadbalancer.stickiness.sameSite**      Enable SameSite flag for sticky session cookie ['none'/'lax'/'strict']
+* **traefik.http.loadbalancer.stickiness.cookieName**      Enable static name for sticky session cookie ['stickycookie']
 
 *Middleware section*
 * **traefik.http.middleware.stripprefix**    prefix to strip ['/dario']
