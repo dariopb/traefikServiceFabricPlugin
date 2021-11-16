@@ -51,6 +51,10 @@ func setLoadbalancerPasshostheader(lb *dynamic.ServersLoadBalancer, val string) 
 	return nil
 }
 
+func newSticky() (*dynamic.Sticky) {
+	return &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+}
+
 func setLoadbalancerSticky(lb *dynamic.ServersLoadBalancer, val string) error {
 	v, err := strconv.ParseBool(val)
 	if err != nil {
@@ -59,7 +63,7 @@ func setLoadbalancerSticky(lb *dynamic.ServersLoadBalancer, val string) error {
 
 	if v {
 		if lb.Sticky == nil {
-			lb.Sticky = &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+			lb.Sticky = newSticky()
 		}
 	}
 	return nil
@@ -73,7 +77,7 @@ func setLoadbalancerStickySecure(lb *dynamic.ServersLoadBalancer, val string) er
 
 	if v {
 		if lb.Sticky == nil {
-			lb.Sticky = &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+			lb.Sticky = newSticky()
 		}
 		lb.Sticky.Cookie.Secure = v
 	}
@@ -88,7 +92,7 @@ func setLoadbalancerStickyHttpOnly(lb *dynamic.ServersLoadBalancer, val string) 
 
 	if v {
 		if lb.Sticky == nil {
-			lb.Sticky = &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+			lb.Sticky = newSticky()
 		}
 		lb.Sticky.Cookie.HTTPOnly = v
 	}
@@ -97,7 +101,7 @@ func setLoadbalancerStickyHttpOnly(lb *dynamic.ServersLoadBalancer, val string) 
 
 func setLoadbalancerStickySameSite(lb *dynamic.ServersLoadBalancer, val string) error {
 	if lb.Sticky == nil {
-		lb.Sticky = &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+		lb.Sticky = newSticky()
 	}
 	
 	// Value must be "none", "lax", or "strict".
@@ -113,7 +117,7 @@ func setLoadbalancerStickySameSite(lb *dynamic.ServersLoadBalancer, val string) 
 
 func setLoadbalancerStickyCookieName(lb *dynamic.ServersLoadBalancer, val string) error {
 	if lb.Sticky == nil {
-		lb.Sticky = &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+		lb.Sticky = newSticky()
 	}
 	lb.Sticky.Cookie.Name = val
 	return nil
