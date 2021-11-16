@@ -3,6 +3,7 @@ package traefikServiceFabricPlugin
 import (
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/traefik/genconf/dynamic"
 )
@@ -98,7 +99,15 @@ func setLoadbalancerStickySameSite(lb *dynamic.ServersLoadBalancer, val string) 
 	if lb.Sticky == nil {
 		lb.Sticky = &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
 	}
-	lb.Sticky.Cookie.SameSite = val
+	
+	// Value must be "none", "lax", or "strict".
+	valid := map[string]bool{"none": true, "lax": true, "strict": true}
+    if valid[strings.ToLower(val)] {
+		lb.Sticky.Cookie.SameSite = val
+	} else {
+		log.Printf("Unrecognised value '%s' provided for Cookie.SameSite", val)
+		return nil
+	}
 	return nil
 }
 
