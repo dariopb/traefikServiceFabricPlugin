@@ -3,6 +3,7 @@ package traefikServiceFabricPlugin
 import (
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/traefik/genconf/dynamic"
 )
@@ -50,6 +51,10 @@ func setLoadbalancerPasshostheader(lb *dynamic.ServersLoadBalancer, val string) 
 	return nil
 }
 
+func newSticky() (*dynamic.Sticky) {
+	return &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+}
+
 func setLoadbalancerSticky(lb *dynamic.ServersLoadBalancer, val string) error {
 	v, err := strconv.ParseBool(val)
 	if err != nil {
@@ -57,10 +62,67 @@ func setLoadbalancerSticky(lb *dynamic.ServersLoadBalancer, val string) error {
 	}
 
 	if v {
-		lb.Sticky = &dynamic.Sticky{}
+		if lb.Sticky == nil {
+			lb.Sticky = newSticky()
+		}
 	}
 	return nil
 }
+
+func setLoadbalancerStickySecure(lb *dynamic.ServersLoadBalancer, val string) error {
+	v, err := strconv.ParseBool(val)
+	if err != nil {
+		v = false
+	}
+
+	if v {
+		if lb.Sticky == nil {
+			lb.Sticky = newSticky()
+		}
+		lb.Sticky.Cookie.Secure = v
+	}
+	return nil
+}
+
+func setLoadbalancerStickyHttpOnly(lb *dynamic.ServersLoadBalancer, val string) error {
+	v, err := strconv.ParseBool(val)
+	if err != nil {
+		v = false
+	}
+
+	if v {
+		if lb.Sticky == nil {
+			lb.Sticky = newSticky()
+		}
+		lb.Sticky.Cookie.HTTPOnly = v
+	}
+	return nil
+}
+
+func setLoadbalancerStickySameSite(lb *dynamic.ServersLoadBalancer, val string) error {
+	if lb.Sticky == nil {
+		lb.Sticky = newSticky()
+	}
+	
+	// Value must be "none", "lax", or "strict".
+	valid := map[string]bool{"none": true, "lax": true, "strict": true}
+    if valid[strings.ToLower(val)] {
+		lb.Sticky.Cookie.SameSite = val
+	} else {
+		log.Printf("Unrecognised value '%s' provided for Cookie.SameSite", val)
+		return nil
+	}
+	return nil
+}
+
+func setLoadbalancerStickyCookieName(lb *dynamic.ServersLoadBalancer, val string) error {
+	if lb.Sticky == nil {
+		lb.Sticky = newSticky()
+	}
+	lb.Sticky.Cookie.Name = val
+	return nil
+}
+
 
 func setLoadbalancerHealthcheckPath(lb *dynamic.ServersLoadBalancer, val string) error {
 	if lb.HealthCheck == nil {
