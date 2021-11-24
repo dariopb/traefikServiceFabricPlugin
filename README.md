@@ -10,6 +10,8 @@ The plugin needs to be configured in the Traefik static configuration before it 
 The plugin currently supports the following configuration settings:
 * **pollInterval:**          The interval for polling the management endpoint for changes, in seconds.
 * **clusterManagementURL:**  The URL for the Service Fabric Management API endpoint (e.g. `http://dariotraefik1.southcentralus.cloudapp.azure.com:19080/`)
+* **insecureSkipVerify**	 Skip verifying the Service Fabric cluster management certificate trust. Default true.
+* **apiVersion**			 Service Fabric API version to use. Default 3.0.
 * **certificate:**           The path to a certificate file or the PEM certificate content. If not provided, HTTP will be used.
 * **certificateKey:**        The path to a private key file or the key content. If not provided, HTTP will be used.
 
@@ -39,6 +41,8 @@ providers:
     traefikServiceFabricPlugin:
       pollInterval: 4s
       clusterManagementURL: http://dariotraefik1.southcentralus.cloudapp.azure.com:19080/
+	  insecureSkipVerify: true
+	  apiVersion: 6.0
       #certificate : ./cert.pem
       #certificateKey: ./cert.key
 ```
