@@ -32,6 +32,8 @@ const (
 type Config struct {
 	PollInterval         string `json:"pollInterval,omitempty"`
 	ClusterManagementURL string `json:"clusterManagementURL,omitempty"`
+	InsecureSkipVerify	 *bool  `json:"insecureSkipVerify,omitempty"`
+	APIVersion			 string `json:"apiVersion,omitempty`
 
 	Certificate    string `json:"certificate,omitempty"`
 	CertificateKey string `json:"certificateKey,omitempty"`
@@ -63,10 +65,20 @@ func New(ctx context.Context, config *Config, name string) (*Provider, error) {
 	if err != nil {
 		return nil, err
 	}
+	
+	var sfApiVersion = sf.DefaultAPIVersion
+	if config.APIVersion != "" {
+		sfApiVersion = config.APIVersion
+	}
+	
+	var insecureSkipVerify = true
+	if config.InsecureSkipVerify != nil {
+		insecureSkipVerify = *config.InsecureSkipVerify
+	}
 
 	p := &Provider{
 		name:                 name,
-		apiVersion:           sf.DefaultAPIVersion,
+		apiVersion:           sfApiVersion,
 		pollInterval:         pi,
 		clusterManagementURL: config.ClusterManagementURL,
 	}
@@ -75,7 +87,7 @@ func New(ctx context.Context, config *Config, name string) (*Provider, error) {
 		p.tlsConfig = &ClientTLS{
 			Cert:               config.Certificate,
 			Key:                config.CertificateKey,
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: insecureSkipVerify,
 		}
 	}
 
