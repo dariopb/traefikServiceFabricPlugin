@@ -41,21 +41,20 @@ func GetIntValue(labels map[string]string, labelName string, defaultValue int) i
 	return defaultValue
 }
 
-func setLoadbalancerPasshostheader(lb *dynamic.ServersLoadBalancer, val string) error {
+func setLoadbalancerPasshostheader(lb *dynamic.ServersLoadBalancer, val string) {
 	v, err := strconv.ParseBool(val)
 	if err != nil {
 		v = false
 	}
 
 	lb.PassHostHeader = &v
-	return nil
 }
 
-func newSticky() (*dynamic.Sticky) {
-	return &dynamic.Sticky{ Cookie: &dynamic.Cookie{} }
+func newSticky() *dynamic.Sticky {
+	return &dynamic.Sticky{Cookie: &dynamic.Cookie{}}
 }
 
-func setLoadbalancerSticky(lb *dynamic.ServersLoadBalancer, val string) error {
+func setLoadbalancerSticky(lb *dynamic.ServersLoadBalancer, val string) {
 	v, err := strconv.ParseBool(val)
 	if err != nil {
 		v = false
@@ -66,10 +65,9 @@ func setLoadbalancerSticky(lb *dynamic.ServersLoadBalancer, val string) error {
 			lb.Sticky = newSticky()
 		}
 	}
-	return nil
 }
 
-func setLoadbalancerStickySecure(lb *dynamic.ServersLoadBalancer, val string) error {
+func setLoadbalancerStickySecure(lb *dynamic.ServersLoadBalancer, val string) {
 	v, err := strconv.ParseBool(val)
 	if err != nil {
 		v = false
@@ -81,10 +79,9 @@ func setLoadbalancerStickySecure(lb *dynamic.ServersLoadBalancer, val string) er
 		}
 		lb.Sticky.Cookie.Secure = v
 	}
-	return nil
 }
 
-func setLoadbalancerStickyHttpOnly(lb *dynamic.ServersLoadBalancer, val string) error {
+func setLoadbalancerStickyHTTPOnly(lb *dynamic.ServersLoadBalancer, val string) {
 	v, err := strconv.ParseBool(val)
 	if err != nil {
 		v = false
@@ -96,62 +93,55 @@ func setLoadbalancerStickyHttpOnly(lb *dynamic.ServersLoadBalancer, val string) 
 		}
 		lb.Sticky.Cookie.HTTPOnly = v
 	}
-	return nil
 }
 
-func setLoadbalancerStickySameSite(lb *dynamic.ServersLoadBalancer, val string) error {
+func setLoadbalancerStickySameSite(lb *dynamic.ServersLoadBalancer, val string) {
 	if lb.Sticky == nil {
 		lb.Sticky = newSticky()
 	}
-	
+
 	// Value must be "none", "lax", or "strict".
 	valid := map[string]bool{"none": true, "lax": true, "strict": true}
-    if valid[strings.ToLower(val)] {
+	if valid[strings.ToLower(val)] {
 		lb.Sticky.Cookie.SameSite = val
 	} else {
-		log.Printf("Unrecognised value '%s' provided for Cookie.SameSite", val)
-		return nil
+		log.Printf("Unrecognized value '%s' provided for Cookie.SameSite", val)
+		return
 	}
-	return nil
 }
 
-func setLoadbalancerStickyCookieName(lb *dynamic.ServersLoadBalancer, val string) error {
+func setLoadbalancerStickyCookieName(lb *dynamic.ServersLoadBalancer, val string) {
 	if lb.Sticky == nil {
 		lb.Sticky = newSticky()
 	}
 	lb.Sticky.Cookie.Name = val
-	return nil
 }
 
-
-func setLoadbalancerHealthcheckPath(lb *dynamic.ServersLoadBalancer, val string) error {
+func setLoadbalancerHealthcheckPath(lb *dynamic.ServersLoadBalancer, val string) {
 	if lb.HealthCheck == nil {
-		lb.HealthCheck = &dynamic.HealthCheck{}
+		lb.HealthCheck = &dynamic.ServerHealthCheck{}
 	}
 
 	lb.HealthCheck.Path = val
-	return nil
 }
 
-func setLoadbalancerHealthcheckInterval(lb *dynamic.ServersLoadBalancer, val string) error {
+func setLoadbalancerHealthcheckInterval(lb *dynamic.ServersLoadBalancer, val string) {
 	if lb.HealthCheck == nil {
-		lb.HealthCheck = &dynamic.HealthCheck{}
+		lb.HealthCheck = &dynamic.ServerHealthCheck{}
 	}
 
 	lb.HealthCheck.Interval = val
-	return nil
 }
 
-func setLoadbalancerHealthcheckScheme(lb *dynamic.ServersLoadBalancer, val string) error {
+func setLoadbalancerHealthcheckScheme(lb *dynamic.ServersLoadBalancer, val string) {
 	if lb.HealthCheck == nil {
-		lb.HealthCheck = &dynamic.HealthCheck{}
+		lb.HealthCheck = &dynamic.ServerHealthCheck{}
 	}
 
 	lb.HealthCheck.Scheme = val
-	return nil
 }
 
-func setMiddlewareStriptprefixPrefixes(name string, middlewares map[string]*dynamic.Middleware, router *dynamic.Router, val string) error {
+func setMiddlewareStriptprefixPrefixes(name string, middlewares map[string]*dynamic.Middleware, router *dynamic.Router, val string) {
 	m, ok := middlewares[name]
 	if !ok {
 		m = &dynamic.Middleware{
@@ -163,6 +153,4 @@ func setMiddlewareStriptprefixPrefixes(name string, middlewares map[string]*dyna
 	middlewares[name] = m
 
 	router.Middlewares = append(router.Middlewares, name)
-
-	return nil
 }

@@ -31,9 +31,9 @@ const (
 // Config the plugin configuration.
 type Config struct {
 	PollInterval         string `json:"pollInterval,omitempty"`
-	ClusterManagementURL string `json:"clusterManagementURL,omitempty"`
-	InsecureSkipVerify	 *bool  `json:"insecureSkipVerify,omitempty"`
-	APIVersion			 string `json:"apiVersion,omitempty`
+	ClusterManagementURL string `json:"clusterManagementUrl,omitempty"`
+	InsecureSkipVerify   *bool  `json:"insecureSkipVerify,omitempty"`
+	APIVersion           string `json:"apiVersion,omitempty"`
 
 	Certificate    string `json:"certificate,omitempty"`
 	CertificateKey string `json:"certificateKey,omitempty"`
@@ -65,20 +65,20 @@ func New(ctx context.Context, config *Config, name string) (*Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	
-	var sfApiVersion = sf.DefaultAPIVersion
+
+	sfAPIVersion := sf.DefaultAPIVersion
 	if config.APIVersion != "" {
-		sfApiVersion = config.APIVersion
+		sfAPIVersion = config.APIVersion
 	}
-	
-	var insecureSkipVerify = true
+
+	insecureSkipVerify := true
 	if config.InsecureSkipVerify != nil {
 		insecureSkipVerify = *config.InsecureSkipVerify
 	}
 
 	p := &Provider{
 		name:                 name,
-		apiVersion:           sfApiVersion,
+		apiVersion:           sfAPIVersion,
 		pollInterval:         pi,
 		clusterManagementURL: config.ClusterManagementURL,
 	}
@@ -340,7 +340,7 @@ func getLabels(sfClient sfClient, service sf.ServiceItem, app sf.ApplicationItem
 	return labels, nil
 }
 
-func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Configuration {
+func (p *Provider) generateConfiguration(extendedItems []ServiceItemExtended) *dynamic.Configuration {
 	configuration := &dynamic.Configuration{
 		HTTP: &dynamic.HTTPConfiguration{
 			Routers:           make(map[string]*dynamic.Router),
@@ -373,15 +373,18 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 		},
 	}
 
-	for _, i := range e {
-		baseName := strings.ReplaceAll(i.Name, "/", "-")
-		baseName = normalize(baseName)
-		var baseRouter *dynamic.Router = nil
+	for i := 0; i < len(extendedItems); i++ {
+		item := extendedItems[i]
 
-		entryPoints := strings.Split(strings.TrimSpace(GetStringValue(i.Labels, traefikSFEntryPoints, "web")), ",")
+		baseName := strings.ReplaceAll(item.Name, "/", "-")
+		baseName = normalize(baseName)
+
+		var baseRouter *dynamic.Router
+
+		entryPoints := strings.Split(strings.TrimSpace(GetStringValue(item.Labels, traefikSFEntryPoints, "web")), ",")
 
 		// If there is only one partition, expose the service name route directly
-		if len(i.Partitions) == 1 {
+		if len(item.Partitions) == 1 {
 			baseRouter = &dynamic.Router{
 				EntryPoints: entryPoints,
 				Service:     baseName,
@@ -390,10 +393,10 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 
 			// If a rule is explicitly provided, use it as is.
 			// Is the user responsibility in this case to add a matching strip middleware.
-			if r := GetStringValue(i.Labels, traefikSFRule, ""); r != "" {
+			if r := GetStringValue(item.Labels, traefikSFRule, ""); r != "" {
 				baseRouter.Rule = r
 			} else {
-				baseRouter.Rule = fmt.Sprintf("PathPrefix(`/%s`)", i.ID)
+				baseRouter.Rule = fmt.Sprintf("PathPrefix(`/%s`)", item.ID)
 				baseRouter.Middlewares = []string{"sf-stripprefixregex_nonpartitioned"}
 			}
 
@@ -401,10 +404,10 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 		}
 
 		// Create the traefik services based on the sf service partitions
-		for _, part := range i.Partitions {
+		for _, part := range item.Partitions {
 			partitionID := part.PartitionInformation.ID
 			name := fmt.Sprintf("%s-%s", baseName, partitionID)
-			rule := fmt.Sprintf("PathPrefix(`/%s/%s`)", i.ID, partitionID)
+			rule := fmt.Sprintf("PathPrefix(`/%s/%s`)", item.ID, partitionID)
 
 			router := &dynamic.Router{
 				EntryPoints: entryPoints,
@@ -439,12 +442,11 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 
 			configuration.HTTP.Routers[name] = router
 
-			var service dynamic.Service
-			service, _ = p.processServiceLabels(name, &i, configuration.HTTP.Middlewares, router)
+			service := p.processServiceLabels(name, &item, configuration.HTTP.Middlewares, router)
 			service.LoadBalancer.Servers = lbServers
 			configuration.HTTP.Services[name] = &service
 
-			if len(i.Partitions) == 1 {
+			if len(item.Partitions) == 1 {
 				configuration.HTTP.Services[baseName] = &service
 				baseRouter.Middlewares = append(baseRouter.Middlewares, router.Middlewares...)
 			}
@@ -456,7 +458,7 @@ func (p *Provider) generateConfiguration(e []ServiceItemExtended) *dynamic.Confi
 	return configuration
 }
 
-func (p *Provider) processServiceLabels(serviceName string, service *ServiceItemExtended, middlewares map[string]*dynamic.Middleware, router *dynamic.Router) (dynamic.Service, error) {
+func (p *Provider) processServiceLabels(serviceName string, service *ServiceItemExtended, middlewares map[string]*dynamic.Middleware, router *dynamic.Router) dynamic.Service {
 	s := dynamic.Service{
 		LoadBalancer: &dynamic.ServersLoadBalancer{
 			PassHostHeader: boolPtr(true),
@@ -472,9 +474,9 @@ func (p *Provider) processServiceLabels(serviceName string, service *ServiceItem
 
 		switch segs[2] {
 		case "loadbalancer":
-			//if f, ok := p.funcMap[name]; ok {
+			// if f, ok := p.funcMap[name]; ok {
 			//    f.(func(*dynamic.ServersLoadBalancer, string) error)(s.LoadBalancer, val)
-			//}
+			// }
 			switch name {
 			case "traefik.http.loadbalancer.passhostheader":
 				setLoadbalancerPasshostheader(s.LoadBalancer, val)
@@ -483,7 +485,7 @@ func (p *Provider) processServiceLabels(serviceName string, service *ServiceItem
 			case "traefik.http.loadbalancer.stickiness.secure":
 				setLoadbalancerStickySecure(s.LoadBalancer, val)
 			case "traefik.http.loadbalancer.stickiness.httpOnly":
-				setLoadbalancerStickyHttpOnly(s.LoadBalancer, val)
+				setLoadbalancerStickyHTTPOnly(s.LoadBalancer, val)
 			case "traefik.http.loadbalancer.stickiness.sameSite":
 				setLoadbalancerStickySameSite(s.LoadBalancer, val)
 			case "traefik.http.loadbalancer.stickiness.cookieName":
@@ -496,15 +498,14 @@ func (p *Provider) processServiceLabels(serviceName string, service *ServiceItem
 				setLoadbalancerHealthcheckScheme(s.LoadBalancer, val)
 			}
 		case "middleware":
-			switch name {
-			case "traefik.http.middleware.stripprefix.prefixes":
+			if name == "traefik.http.middleware.stripprefix.prefixes" {
 				setMiddlewareStriptprefixPrefixes(fmt.Sprintf("%s-%d", serviceName, i), middlewares, router, val)
 			}
 		}
 		i++
 	}
 
-	return s, nil
+	return s
 }
 
 func boolPtr(v bool) *bool {

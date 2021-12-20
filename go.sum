@@ -1,13 +1,4 @@
-github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/jjcollinge/servicefabric v0.0.2-0.20180125130438-8eebe170fa1b h1:7uVeTMd+3V33Hl/ON+7/br/x+aDsJhNXkpjMAiy+sRc=
 github.com/jjcollinge/servicefabric v0.0.2-0.20180125130438-8eebe170fa1b/go.mod h1:B1V4fd6vKwSO6pQq0mcBnxcbwjpeNu1y6fDworxmNvY=
-github.com/magefile/mage v1.10.0 h1:3HiXzCUY12kh9bIuyXShaVe529fJfyqoVM42o/uom2g=
-github.com/magefile/mage v1.10.0/go.mod h1:z5UZb/iS3GoOSn0JgWuiw7dxlurVYTu+/jHXqQg881A=
-github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/sirupsen/logrus v1.8.0 h1:nfhvjKcUMhBMVqbKHJlk5RPrrfYr/NMo3692g0dwfWU=
-github.com/sirupsen/logrus v1.8.0/go.mod h1:4GuYW9TZmE769R5STWrRakJc4UqQ3+QQ95fyz7ENv1A=
-github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
-github.com/traefik/genconf v0.0.0-20210122120711-a2bf09240729 h1:LdFhyLs4wTtQsHccgDTEAT51D+s1Bu4q3VNdNT8VqAg=
-github.com/traefik/genconf v0.0.0-20210122120711-a2bf09240729/go.mod h1:zm9jSTkB99RNH2QKSNodU314PQ8VQRb4h1mDeqz+tnI=
-golang.org/x/sys v0.0.0-20191026070338-33540a1f6037 h1:YyJpGZS1sBuBCzLAR1VEpK193GlqGZbnPFnPV/5Rsb4=
-golang.org/x/sys v0.0.0-20191026070338-33540a1f6037/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+github.com/traefik/genconf v0.1.0 h1:8keeE9vUfR0wxLWZwlcB83N+KTTu2TiRc9hscXmvFcE=
+github.com/traefik/genconf v0.1.0/go.mod h1:zm9jSTkB99RNH2QKSNodU314PQ8VQRb4h1mDeqz+tnI=

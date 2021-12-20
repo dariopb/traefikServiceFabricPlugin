@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func TestNew(t *testing.T) {
+func TestProvider_Provide(t *testing.T) {
 	mux := http.NewServeMux()
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
@@ -26,7 +26,7 @@ func TestNew(t *testing.T) {
 
 	config := CreateConfig()
 	config.PollInterval = "1s"
-	//config.ClusterManagementURL = "http://dariolinclus1.southcentralus.cloudapp.azure.com:19080"
+	// config.ClusterManagementURL = "http://dariolinclus1.southcentralus.cloudapp.azure.com:19080"
 	config.ClusterManagementURL = server.URL
 
 	provider, err := New(context.Background(), config, "test")
@@ -71,7 +71,7 @@ func TestNew(t *testing.T) {
 	dataClean := strings.ReplaceAll(string(dataJSON), "\r", "")
 
 	if expected != dataClean {
-		t.Fatalf("got %s, want: %s", expected, dataClean)
+		t.Fatalf("got: %s, want: %s", expected, dataClean)
 	}
 }
 
