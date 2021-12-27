@@ -10,8 +10,6 @@ linters-settings:
     min-confidence: 0
   gocyclo:
     min-complexity: 18 # TODO must be changed to 12 or 15
-  maligned:
-    suggest-new: true
   goconst:
     min-len: 3
     min-occurrences: 4
@@ -24,6 +22,7 @@ linters-settings:
 linters:
   enable-all: true
   disable:
+    - golint # deprecated
     - maligned # deprecated
     - interfacer # deprecated
     - scopelint # deprecated
@@ -44,6 +43,8 @@ linters:
     - wsl
     - forbidigo
     - nestif
+    - varnamelen
+    - nilnil
     - gocognit # TODO must be enable
 
 issues:

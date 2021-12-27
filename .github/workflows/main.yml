@@ -3,7 +3,7 @@ name: Main
 on:
   push:
     branches:
-      - master
+      - main
     tags:
       - v*
   pull_request:
@@ -14,9 +14,9 @@ jobs:
     name: Main Process
     runs-on: ubuntu-latest
     env:
-      GO_VERSION: 1.16
-      GOLANGCI_LINT_VERSION: v1.39.0
-      YAEGI_VERSION: v0.9.15
+      GO_VERSION: 1.17
+      GOLANGCI_LINT_VERSION: v1.43.0
+      YAEGI_VERSION: v0.11.2
       CGO_ENABLED: 0
     defaults:
       run:
@@ -58,10 +58,10 @@ jobs:
 
       - name: Check and get dependencies
         run: |
+          go mod download
           go mod tidy
           git diff --exit-code go.mod
           git diff --exit-code go.sum
-          go mod download
           go mod vendor
           git diff --exit-code ./vendor/
 
