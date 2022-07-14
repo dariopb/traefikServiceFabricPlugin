@@ -37,19 +37,20 @@ pilot:
   token: xxxxx
 
 experimental:
-  traefikServiceFabricPlugin:
-    moduleName: github.com/dariopb/traefikServiceFabricPlugin
-    version: v0.2.2
+  plugins:
+    traefikServiceFabricPlugin:
+      moduleName: github.com/dariopb/traefikServiceFabricPlugin
+      version: v0.2.2
 
 providers:
   plugin:
     traefikServiceFabricPlugin:
-    pollInterval: 4s
-    clusterManagementURL: 'http://dariotraefik1.southcentralus.cloudapp.azure.com:19080/'
-    insecureSkipVerify: true
-    apiVersion: 6.0
-    #certificate : ./cert.pem
-    #certificateKey: ./cert.key
+      pollInterval: 4s
+      clusterManagementURL: 'http://dariotraefik1.southcentralus.cloudapp.azure.com:19080/'
+      insecureSkipVerify: true
+      apiVersion: 6.0
+      #certificate : ./cert.pem
+      #certificateKey: ./cert.key
 ```
 
 ## Sample deployments
